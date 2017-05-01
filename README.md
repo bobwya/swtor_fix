@@ -17,8 +17,8 @@ This code is based on the [**swtor_fix**](https://github.com/aljen/swtor_fix) Gi
 This in turn was based on the original patch for Wine by **Carsten Juttner** & **Xolotl Loki**.
 
 Updates to the original **swtor_fix** repository contents:
-* Improved **launcher.sh** script (code refactoring, sets required mouse warping override, handles Windows filesystem case insensitivity, trapping exit conditions).
-* **swtor_fix.exe** now supports a time parameter (in milliseconds) to set the update interval for the **KUSER_SHARED_DATA** time fields.
+* **launcher.sh** script: code refactoring, sets required mouse warping override, handles Windows filesystem case insensitivity, trapping exit conditions, etc.
+* **swtor_fix.exe**: supports a time parameter (in milliseconds) to set the update interval for the **KUSER_SHARED_DATA** time fields.
 
 
 Howto Use Launcher Script
