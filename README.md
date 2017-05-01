@@ -2,6 +2,7 @@ Fix for Star Wars: The Old Republic to run under Wine
 =========
 
 Wine needs a patch to correct system time synchronisation - which is essential to support the SW:TOR network code.
+
 See [Wine Bug 29168 - Multiple games and applications need realtime updates to KSYSTEM_TIME members in KUSER_SHARED_DATA (Star Wars: The Old Republic game client, GO 1.4+ runtime)](http://bugs.winehq.org/show_bug.cgi?id=29168) ...
 
 
