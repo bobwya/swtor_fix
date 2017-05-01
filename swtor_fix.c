@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <stdbool.h>
 #include <windows.h>
 #include <winternl.h>
 #include <tlhelp32.h>
@@ -34,10 +37,12 @@ static ULONGLONG start_time;
 static DWORD pid = 0;
 static HANDLE target;
 static int done = 0;
+static int timer_interval;
 
 void update_shared_data_time(void)
 {
   LARGE_INTEGER now, start, irq;
+  LONGLONG     d11, d12, d13, d14, remainder;
   nt_qst(&now);
 
   irq.QuadPart = (now.QuadPart - start_time);
@@ -50,7 +55,19 @@ void update_shared_data_time(void)
   KUSD_SYSTEMTIME_LOWPART   = now.LowPart;
   KUSD_SYSTEMTIME_HIGH1TIME = now.HighPart;
 
-  start.QuadPart = irq.QuadPart / 10000;
+  /* start.QuadPart = irq.QuadPart / 10000; */
+  /* b0.110100011011011100010111010110001110 (8192/10000) */
+  d12 = irq.QuadPart + (irq.QuadPart >> 1); /* b1100 = 12 */
+  d11 = irq.QuadPart + (d12 >> 2);          /* b1011 = 11 */
+  d13 = d12 + (irq.QuadPart >> 3);          /* b1101 = 13 */
+  d14 = d12 + (irq.QuadPart >> 2);          /* b1110 = 14 */
+
+  start.QuadPart  = d13 + (d13 >> 7) + (d11 >> 11);
+  start.QuadPart += (irq.QuadPart >> 15) + (irq.QuadPart >> 19);
+  start.QuadPart += (d14 >> 21) + (d11 >> 25) + (d14 >> 32);     /* intermediate=quotient*8192     */
+  start.QuadPart  = start.QuadPart >> 14;                        /* intermediate=intermediate/8192 */
+  remainder = irq.QuadPart - start.QuadPart*10000;
+  start.QuadPart += ((remainder + 452) >> 12);            /* round to nearest ~5000 = (4096+904/2) */
 
   KUSD_TICKCOUNT_HIGH2TIME    = start.HighPart;
   KUSD_TICKCOUNT_LOWPART      = start.LowPart;
@@ -71,12 +88,14 @@ DWORD wait_for_swtor(void)
   Process32First(h, &p_entry);
 
   while (1) {
-    if (!Process32Next(h, &p_entry)) {
+    if (!Process32Next(h, &p_entry))
+    {
       CloseHandle(h);
       h = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
       Process32First(h, &p_entry);
     }
-    if (strcmp(p_entry.szExeFile, "swtor.exe") == 0) {
+    if (strcmp(p_entry.szExeFile, "swtor.exe") == 0)
+    {
       swtor_pid = p_entry.th32ProcessID;
       fprintf(stderr, "Found, PID: %ld\n", swtor_pid);
       break;
@@ -117,10 +136,11 @@ DWORD WINAPI shared_data_thread(LPVOID arg)
 {
   (void)arg;
 
-  while (!done) {
+  while (!done)
+  {
     update_shared_data_time();
     copy_to_target();
-    Sleep(15);
+    Sleep(timer_interval);
   }
 
   return 0;
@@ -136,7 +156,8 @@ DWORD WINAPI is_target_dead_thread(LPVOID arg)
     HANDLE swtor = OpenProcess(SYNCHRONIZE, FALSE, pid);
     ret = WaitForSingleObject(swtor, 0);
     CloseHandle(swtor);
-    if (ret != WAIT_TIMEOUT) {
+    if (ret != WAIT_TIMEOUT)
+    {
       done = 1;
       break;
     }
@@ -146,8 +167,25 @@ DWORD WINAPI is_target_dead_thread(LPVOID arg)
   return 0;
 }
 
-int main(void)
+bool is_number(char number[])
 {
+    for (int i=0; number[i] != 0; i++)
+    {
+        if (!isdigit(number[i]))
+            return false;
+    }
+    return true;
+}
+
+int main(int argc, char *argv[])
+{
+  if ((argc == 1) || !is_number(argv[1]))
+  {
+    fprintf(stderr, "%s: usage: %s sleep-interval-time(millseconds)\n", argv[0], argv[0]);
+    return 1;
+  }
+  timer_interval=atoi(argv[1]);
+
   HMODULE ntdll = LoadLibrary("ntdll");
 
   SYSTEM_TIMEOFDAY_INFORMATION ti;
@@ -166,7 +204,7 @@ int main(void)
   threads[0] = CreateThread(NULL, 0, shared_data_thread, NULL, 0, NULL);
   threads[1] = CreateThread(NULL, 0, is_target_dead_thread, NULL, 0, NULL);
 
-  fprintf(stderr, "Waiting for threads to end..\n");
+  fprintf(stderr, "%s: Waiting for threads to end...\n", argv[0]);
   fflush(stderr);
 
   WaitForMultipleObjects(2, threads, TRUE, INFINITE);

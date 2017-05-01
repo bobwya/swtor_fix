@@ -1,19 +1,28 @@
-Fix for Star Wars: The Old Republic to run on WINE
+Fix for Star Wars: The Old Republic to run under Wine
 =========
 
-WINE doesn't handle SW:TOR by default and needs a patch (http://bugs.winehq.org/show_bug.cgi?id=29168)
-I wanted to use WINE from a repo without patching, so I implemented this small application to allow SW:TOR to work correctly.
-All it does is waiting for swtor.exe to start up, takes his PID and launch two threads.
-First thread simply waits for swtor.exe to end to do cleanup, the second one just updates KUSER_SHARED_DATA's time fields, so the game
-network code just works as it should be and then copies those into swtor.exe process memory.
+Wine needs a patch (http://bugs.winehq.org/show_bug.cgi?id=29168) to fix the SW:TOR network code time synchronisation.
+The swtor_fix.exe function are:
+wait for the main swtor.exe executable to start up.
+Stores PID of main swtor.exe executable.
+Two threads are forked.
+The first thread waits for swtor.exe to end to do cleanup
+The second thread continuously updates the process KUSER_SHARED_DATA time fields and copies these fields into swtor.exe process memory.
 
-This code is based on original patch for WINE by Carsten Juttner & Xolotl Loki
+This code is based on the swtor_fix repository by Artur Wyszyński.
+This in turn was based on the original patch for Wine by Carsten Juttner & Xolotl Loki.
 
-How to:
-- copy swtor_fix.exe to ~/.wine/drive_c
-- run two terminals
-- on first one, run:
-$ WINEDEBUG=-all wine c:\swtor_fix.exe
-- switch to second one and run:
-$ WINEDEBUG=-all wine ~/.wine/drive_c/Program\ Files\ \(x86\)/Electronic\ Arts/BioWare/Star\ Wars\ -\ The\ Old\ Republic/launcher.exe
+Updates to the original swtor_fix repository:
+A simple build script for swtor_fix.exe (build.sh)
+Improved launcher.sh script (code refactoring, sets required mouse warping override, handles Windows filesystem case insensitivity, trapping exit conditions).
+swtor_fix.exe now supports a time parameter (in milliseconds) to set the update interval for the KUSER_SHARED_DATA time fields
 
+Howto Use Repository
+=========
+
+```
+# Set WINEPREFIX to location of SWTOR WINEPREFIX.
+cd "${WINEPREFIX:-${HOME}/.wine}/drive_c"
+git clone
+./launcher.sh
+```
