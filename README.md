@@ -1,4 +1,4 @@
-Fix for Star Wars: The Old Republic to run under Wine
+Standalone Wine network code fix for Star Wars: The Old Republic (SW:TOR)
 =========
 
 Wine needs a patch to correct system time synchronisation - which is essential to support the SW:TOR network code.
